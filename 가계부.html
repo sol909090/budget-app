@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>우리 가계부</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#111113; --s1:#1a1a1d; --s2:#222226; --s3:#2c2c31;
+    --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.13);
+    --text:#e8e8ec; --muted:#55555f; --muted2:#888898;
+    --income:#c8f0c8; --expense:#f0c8c8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:'Noto Sans KR',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; max-width:430px; margin:0 auto; padding-bottom:80px; }
+
+  /* 로그인 화면 */
+  .login-screen { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 32px; z-index:999; }
+  .login-screen.hide { display:none; }
+  .login-logo { font-family:'IBM Plex Mono',monospace; font-size:28px; font-weight:500; color:var(--text); margin-bottom:8px; }
+  .login-sub { font-size:12px; color:var(--muted); margin-bottom:48px; letter-spacing:.08em; }
+  .login-field { width:100%; margin-bottom:12px; }
+  .login-field label { display:block; font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:7px; }
+  .login-field input { width:100%; background:var(--s2); border:1px solid var(--border); border-radius:10px; padding:14px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:14px; outline:none; transition:border-color .2s; }
+  .login-field input:focus { border-color:var(--border2); }
+  .login-field input::placeholder { color:var(--muted); }
+  .login-btn { width:100%; background:var(--text); color:var(--bg); border:none; border-radius:12px; padding:15px; font-family:'Noto Sans KR',sans-serif; font-size:14px; font-weight:700; cursor:pointer; margin-top:8px; transition:opacity .15s; }
+  .login-btn:active { opacity:.8; }
+  .login-toggle { margin-top:16px; font-size:12px; color:var(--muted); cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+  .login-err { font-size:12px; color:var(--expense); margin-top:8px; text-align:center; min-height:18px; }
+  .login-mode-title { font-size:15px; font-weight:700; color:var(--text); margin-bottom:24px; text-align:center; }
+
+  /* 상단 유저 바 */
+  .user-bar { display:flex; justify-content:space-between; align-items:center; padding:12px 24px; border-bottom:1px solid var(--border); }
+  .user-email { font-size:11px; color:var(--muted); }
+  .logout-btn { background:none; border:1px solid var(--border); color:var(--muted); font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer; font-family:'Noto Sans KR',sans-serif; transition:background .15s; }
+  .logout-btn:active { background:var(--s2); }
+
+  /* 헤더 */
+  .header { padding:16px 24px 20px; border-bottom:1px solid var(--border); }
+  .header-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .app-name { font-size:12px; font-weight:500; color:var(--muted2); letter-spacing:.14em; text-transform:uppercase; }
+  .month-nav { display:flex; align-items:center; gap:16px; }
+  .mnav-btn { background:none; border:1px solid var(--border2); color:var(--muted2); width:28px; height:28px; border-radius:7px; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+  .mnav-btn:active { background:var(--s2); }
+  .month-text { font-size:13px; font-weight:500; color:var(--text); min-width:70px; text-align:center; }
+  .exp-box { background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+  .exp-box-lbl { font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .dot-exp { width:5px; height:5px; border-radius:50%; display:inline-block; background:var(--expense); }
+  .exp-box-amt { font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:500; color:var(--expense); }
+  .exp-box-sub { font-size:10px; color:var(--muted); margin-top:5px; }
+
+  /* 명언 */
+  .quote-bar { padding:14px 24px; border-bottom:1px solid var(--border); display:flex; gap:10px; align-items:flex-start; }
+  .quote-mark { font-family:'IBM Plex Mono',monospace; font-size:22px; color:var(--s3); line-height:1; flex-shrink:0; margin-top:-1px; }
+  .quote-text { font-size:12px; color:var(--muted2); line-height:1.7; }
+  .quote-author { font-size:10px; color:var(--muted); margin-top:5px; letter-spacing:.06em; }
+
+  /* 탭 */
+  .tab-bar { display:flex; padding:0 24px; border-bottom:1px solid var(--border); }
+  .tab-btn { flex:1; background:none; border:none; color:var(--muted2); font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:500; padding:13px 0; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .2s, border-color .2s; }
+  .tab-btn.active { color:var(--text); border-bottom-color:var(--text); }
+
+  /* 콘텐츠 */
+  .content { padding:20px 24px; }
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* 거래 내역 */
+  .date-div { font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; padding:16px 0 8px; border-bottom:1px solid var(--border); margin-bottom:8px; }
+  .date-div:first-child { padding-top:0; }
+  .tx-list { display:flex; flex-direction:column; }
+  .tx-item { display:flex; align-items:center; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); animation:fadeUp .22s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+  .tx-ico { width:38px; height:38px; border-radius:10px; background:var(--s2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+  .tx-info { flex:1; min-width:0; }
+  .tx-name { font-size:14px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tx-sub { font-size:10px; color:var(--muted); margin-top:3px; }
+  .tx-tag { background:var(--s2); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:10px; color:var(--muted2); }
+  .tx-right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .tx-amt { font-family:'IBM Plex Mono',monospace; font-size:14px; font-weight:500; }
+  .tx-amt.inc { color:var(--income); }
+  .tx-amt.exp { color:var(--expense); }
+  .tx-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:4px; opacity:.4; transition:opacity .15s; line-height:1; }
+  .tx-del:active { opacity:1; }
+  .empty { text-align:center; padding:52px 0; color:var(--muted); }
+  .empty-i { font-size:28px; margin-bottom:12px; opacity:.3; }
+  .empty p { font-size:13px; line-height:1.8; }
+
+  /* 통계 */
+  .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:22px; }
+  .stat-box { background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .stat-lbl { font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .stat-val { font-family:'IBM Plex Mono',monospace; font-size:17px; font-weight:500; color:var(--text); }
+  .monthly-wrap { background:var(--s1); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:22px; }
+  .sec-lbl { font-size:10px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; margin-bottom:16px; }
+  .m-bars { display:flex; align-items:flex-end; gap:6px; height:80px; }
+  .m-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:5px; }
+  .m-bar { width:100%; background:var(--s3); border-radius:3px 3px 2px 2px; min-height:2px; transition:height .8s ease; }
+  .m-bar.cur { background:var(--muted2); }
+  .m-lbl { font-size:9px; color:var(--muted); }
+  .m-lbl.cur { color:var(--text); }
+  .sec-title { font-size:10px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .cat-row { display:flex; align-items:center; gap:12px; margin-bottom:13px; }
+  .cat-em { font-size:14px; width:18px; text-align:center; flex-shrink:0; }
+  .cat-nm { font-size:12px; color:var(--muted2); width:48px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cat-bg { flex:1; height:3px; background:var(--s3); border-radius:2px; overflow:hidden; }
+  .cat-fill { height:100%; background:var(--muted2); border-radius:2px; transition:width .9s ease; }
+  .cat-am { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted2); width:60px; text-align:right; flex-shrink:0; }
+
+  /* 투두 2컬럼 */
+  .todo-cols { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:28px; }
+  .todo-col { background:var(--s1); border:1px solid var(--border); border-radius:14px; padding:14px 12px; min-height:200px; }
+  .todo-col-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .todo-col-title { font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; }
+  .todo-add-btn { background:none; border:1px solid var(--border2); color:var(--muted2); font-size:15px; width:22px; height:22px; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s; line-height:1; flex-shrink:0; }
+  .todo-add-btn:active { background:var(--s2); }
+  .todo-inline-input { display:none; width:100%; background:var(--s2); border:1px solid var(--border2); border-radius:8px; padding:8px 10px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:12px; outline:none; margin-bottom:8px; }
+  .todo-inline-input.show { display:block; }
+  .todo-item { display:flex; align-items:flex-start; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); animation:fadeUp .2s ease; }
+  .todo-item:last-child { border-bottom:none; }
+  .todo-check { width:16px; height:16px; border:1.5px solid var(--border2); border-radius:4px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .2s; margin-top:2px; }
+  .todo-check.done { background:var(--muted2); border-color:var(--muted2); }
+  .todo-check.done::after { content:'✓'; font-size:9px; color:var(--bg); font-weight:700; }
+  .todo-text { flex:1; font-size:12px; color:var(--text); line-height:1.5; transition:color .2s; word-break:keep-all; }
+  .todo-text.done { color:var(--muted); text-decoration:line-through; }
+  .todo-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:11px; padding:2px; opacity:.3; transition:opacity .15s; line-height:1; flex-shrink:0; }
+  .todo-del:active { opacity:1; }
+  .todo-empty-sm { font-size:11px; color:var(--muted); padding:12px 0; text-align:center; }
+  .todo-prog-row { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+  .todo-prog-pct { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); }
+  .todo-prog-bg { height:2px; background:var(--s3); border-radius:1px; overflow:hidden; margin-top:5px; }
+  .todo-prog-fill { height:100%; background:var(--muted2); border-radius:1px; transition:width .6s ease; }
+
+  /* 영어 회화 */
+  .phrase-section { border-top:1px solid var(--border); padding-top:24px; }
+  .phrase-section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .phrase-section-lbl { font-size:10px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; }
+  .phrase-edit-btn { background:none; border:1px solid var(--border2); color:var(--muted2); font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; font-family:'Noto Sans KR',sans-serif; transition:background .15s; }
+  .phrase-edit-btn:active { background:var(--s2); }
+  .phrase-card { background:var(--s1); border:1px solid var(--border); border-radius:14px; padding:18px; }
+  .phrase-nav-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .phrase-nav-btn { background:none; border:1px solid var(--border2); color:var(--muted2); width:26px; height:26px; border-radius:7px; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+  .phrase-nav-btn:active { background:var(--s2); }
+  .phrase-dots { display:flex; gap:4px; align-items:center; }
+  .phrase-dot { width:5px; height:5px; border-radius:50%; background:var(--s3); transition:background .2s; }
+  .phrase-dot.on { background:var(--muted2); }
+  .phrase-week-tag { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted2); }
+  .phrase-en { font-size:16px; font-weight:600; color:var(--text); line-height:1.55; margin-bottom:8px; }
+  .phrase-ko { font-size:13px; color:var(--muted2); line-height:1.6; margin-bottom:12px; }
+  .phrase-memo { font-size:11px; color:var(--muted); background:var(--s2); border-radius:8px; padding:10px 12px; line-height:1.65; border:1px solid var(--border); }
+  .phrase-memo-lbl { font-size:10px; color:var(--muted2); font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
+  .phrase-empty { text-align:center; padding:28px 0; color:var(--muted); font-size:12px; line-height:1.8; }
+
+  /* 회화 편집 모달 */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:300; opacity:0; pointer-events:none; transition:opacity .25s; }
+  .modal-overlay.show { opacity:1; pointer-events:all; }
+  .modal { position:fixed; bottom:0; left:50%; transform:translateX(-50%) translateY(100%); width:100%; max-width:430px; background:var(--s1); border-radius:20px 20px 0 0; border-top:1px solid var(--border2); padding:0 24px 48px; z-index:301; transition:transform .35s cubic-bezier(.32,.72,0,1); max-height:88vh; overflow-y:auto; }
+  .modal.show { transform:translateX(-50%) translateY(0); }
+  .modal-handle { width:32px; height:3px; background:var(--s3); border-radius:2px; margin:12px auto 18px; }
+  .modal-title { font-size:15px; font-weight:700; color:var(--text); margin-bottom:6px; }
+  .modal-sub { font-size:12px; color:var(--muted); margin-bottom:20px; line-height:1.6; }
+  .phrase-list-item { background:var(--s2); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; }
+  .pli-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .pli-num { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted2); }
+  .pli-del-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; opacity:.5; }
+  .pli-del-btn:active { opacity:1; }
+  .pli-field { margin-bottom:8px; }
+  .pli-label { font-size:10px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-bottom:5px; }
+  .pli-input { width:100%; background:var(--s3); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:13px; outline:none; resize:none; transition:border-color .2s; }
+  .pli-input:focus { border-color:var(--border2); }
+  .pli-input::placeholder { color:var(--muted); }
+  .modal-add-btn { width:100%; background:var(--s2); border:1px solid var(--border2); border-radius:10px; padding:13px; color:var(--muted2); font-family:'Noto Sans KR',sans-serif; font-size:13px; cursor:pointer; margin-bottom:12px; transition:background .15s; }
+  .modal-add-btn:active { background:var(--s3); }
+  .modal-save-btn { width:100%; background:var(--text); color:var(--bg); border:none; border-radius:12px; padding:15px; font-family:'Noto Sans KR',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:opacity .15s; }
+  .modal-save-btn:active { opacity:.8; }
+
+  /* FAB / 거래 모달 */
+  .fab { position:fixed; bottom:28px; right:24px; width:50px; height:50px; background:var(--text); border:none; border-radius:14px; color:var(--bg); font-size:24px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 24px rgba(0,0,0,.55); transition:transform .15s, opacity .15s; z-index:100; }
+  .fab:active { transform:scale(.93); opacity:.85; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:200; opacity:0; pointer-events:none; transition:opacity .25s; }
+  .overlay.show { opacity:1; pointer-events:all; }
+  .sheet { position:fixed; bottom:0; left:50%; transform:translateX(-50%) translateY(100%); width:100%; max-width:430px; background:var(--s1); border-radius:20px 20px 0 0; border-top:1px solid var(--border2); padding:0 24px 48px; z-index:201; transition:transform .35s cubic-bezier(.32,.72,0,1); }
+  .sheet.show { transform:translateX(-50%) translateY(0); }
+  .sh-handle { width:32px; height:3px; background:var(--s3); border-radius:2px; margin:12px auto 20px; }
+  .sh-title { font-size:15px; font-weight:700; color:var(--text); margin-bottom:20px; }
+  .seg { display:flex; background:var(--s2); border:1px solid var(--border); border-radius:10px; padding:3px; margin-bottom:18px; gap:3px; }
+  .seg-btn { flex:1; background:transparent; border:none; color:var(--muted2); font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:500; padding:9px 0; border-radius:7px; cursor:pointer; transition:all .2s; }
+  .seg-btn.on { background:var(--s3); color:var(--text); border:1px solid var(--border2); }
+  .field { margin-bottom:13px; }
+  .field label { display:block; font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:7px; }
+  .field input, .field select { width:100%; background:var(--s2); border:1px solid var(--border); border-radius:10px; padding:13px 14px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:14px; outline:none; transition:border-color .2s, background .2s; -webkit-appearance:none; }
+  .field input:focus, .field select:focus { border-color:var(--border2); background:var(--s3); }
+  .field input::placeholder { color:var(--muted); }
+  .field select option { background:var(--s2); }
+  .amt-inp { font-family:'IBM Plex Mono',monospace !important; font-size:22px !important; font-weight:500 !important; }
+  .save-btn { width:100%; background:var(--text); color:var(--bg); border:none; border-radius:12px; padding:15px; font-family:'Noto Sans KR',sans-serif; font-size:14px; font-weight:700; cursor:pointer; margin-top:8px; transition:opacity .15s; }
+  .save-btn:active { opacity:.8; }
+  .toast { position:fixed; top:52px; left:50%; transform:translateX(-50%) translateY(-8px); background:var(--s3); border:1px solid var(--border2); color:var(--text); font-size:12px; font-weight:500; padding:9px 18px; border-radius:8px; z-index:999; opacity:0; transition:all .25s; pointer-events:none; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  ::-webkit-scrollbar { display:none; }
+</style>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-logo">가계부</div>
+  <div class="login-sub">우리 가족 가계부</div>
+  <div class="login-mode-title" id="loginModeTitle">로그인</div>
+  <div class="login-field">
+    <label>이메일</label>
+    <input type="email" id="loginEmail" placeholder="example@gmail.com">
+  </div>
+  <div class="login-field">
+    <label>비밀번호</label>
+    <input type="password" id="loginPw" placeholder="6자리 이상">
+  </div>
+  <div class="login-err" id="loginErr"></div>
+  <button class="login-btn" id="loginBtn" onclick="doAuth()">로그인</button>
+  <div class="login-toggle" id="loginToggle" onclick="toggleAuthMode()">
+    계정이 없으신가요? 회원가입
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 유저 바 -->
+<div class="user-bar" id="userBar" style="display:none">
+  <div class="user-email" id="userEmail"></div>
+  <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+</div>
+
+<!-- 헤더 -->
+<div class="header" id="mainHeader" style="display:none">
+  <div class="header-top">
+    <div class="app-name">가계부</div>
+    <div class="month-nav">
+      <button class="mnav-btn" onclick="chMonth(-1)">&#8249;</button>
+      <div class="month-text" id="monthLabel"></div>
+      <button class="mnav-btn" onclick="chMonth(1)">&#8250;</button>
+    </div>
+  </div>
+  <div class="exp-box">
+    <div class="exp-box-lbl"><span class="dot-exp"></span>이번 달 지출</div>
+    <div class="exp-box-amt" id="sumExp">&#8361;0</div>
+    <div class="exp-box-sub" id="expSubLabel">거래 0건</div>
+  </div>
+</div>
+
+<!-- 명언 -->
+<div class="quote-bar" id="quoteBar" style="display:none">
+  <div class="quote-mark">"</div>
+  <div>
+    <div class="quote-text" id="quoteText"></div>
+    <div class="quote-author" id="quoteAuthor"></div>
+  </div>
+</div>
+
+<!-- 탭 -->
+<div class="tab-bar" id="tabBar" style="display:none">
+  <button class="tab-btn active" id="tab-todo"  onclick="switchTab('todo')">할일</button>
+  <button class="tab-btn"        id="tab-list"  onclick="switchTab('list')">내역</button>
+  <button class="tab-btn"        id="tab-stats" onclick="switchTab('stats')">통계</button>
+</div>
+
+<div class="content" id="mainContent" style="display:none">
+
+  <!-- 할일 탭 -->
+  <div class="page active" id="page-todo">
+    <div class="todo-cols">
+      <div class="todo-col">
+        <div class="todo-col-header">
+          <div class="todo-col-title">오늘</div>
+          <button class="todo-add-btn" onclick="showTodoInput('daily')">+</button>
+        </div>
+        <input class="todo-inline-input" id="todoInputDaily" placeholder="추가 후 Enter" onkeydown="handleTodoKey(event,'daily')">
+        <div id="todoListDaily"></div>
+        <div class="todo-prog-row"><span class="todo-prog-pct" id="progPctDaily">0%</span></div>
+        <div class="todo-prog-bg"><div class="todo-prog-fill" id="progFillDaily" style="width:0%"></div></div>
+      </div>
+      <div class="todo-col">
+        <div class="todo-col-header">
+          <div class="todo-col-title">이번 주</div>
+          <button class="todo-add-btn" onclick="showTodoInput('weekly')">+</button>
+        </div>
+        <input class="todo-inline-input" id="todoInputWeekly" placeholder="추가 후 Enter" onkeydown="handleTodoKey(event,'weekly')">
+        <div id="todoListWeekly"></div>
+        <div class="todo-prog-row"><span class="todo-prog-pct" id="progPctWeekly">0%</span></div>
+        <div class="todo-prog-bg"><div class="todo-prog-fill" id="progFillWeekly" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="phrase-section">
+      <div class="phrase-section-header">
+        <div class="phrase-section-lbl">주간 영어 회화</div>
+        <button class="phrase-edit-btn" onclick="openPhraseModal()">편집</button>
+      </div>
+      <div id="phraseCardWrap"></div>
+    </div>
+  </div>
+
+  <!-- 내역 탭 -->
+  <div class="page" id="page-list">
+    <div class="tx-list" id="txList"></div>
+  </div>
+
+  <!-- 통계 탭 -->
+  <div class="page" id="page-stats">
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-lbl">저축률</div><div class="stat-val" id="stRate">&#8212;</div></div>
+      <div class="stat-box"><div class="stat-lbl">거래 건수</div><div class="stat-val" id="stCount">0건</div></div>
+      <div class="stat-box"><div class="stat-lbl">일평균 지출</div><div class="stat-val" id="stDaily">&#8361;0</div></div>
+      <div class="stat-box"><div class="stat-lbl">최대 지출</div><div class="stat-val" id="stMax">&#8361;0</div></div>
+    </div>
+    <div class="monthly-wrap">
+      <div class="sec-lbl">월별 지출 추이</div>
+      <div class="m-bars" id="mBars"></div>
+    </div>
+    <div class="sec-title">카테고리별 지출</div>
+    <div id="catList"></div>
+  </div>
+</div>
+
+<button class="fab" id="mainFab" onclick="openSheet()" style="display:none">+</button>
+
+<!-- 거래 입력 모달 -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sh-handle"></div>
+  <div class="sh-title">거래 추가</div>
+  <div class="seg">
+    <button class="seg-btn"    id="segInc" onclick="setType('income')">수입</button>
+    <button class="seg-btn on" id="segExp" onclick="setType('expense')">지출</button>
+  </div>
+  <div class="field"><label>금액</label><input class="amt-inp" type="number" id="inpAmt" placeholder="0" inputmode="numeric"></div>
+  <div class="field"><label>내용</label><input type="text" id="inpDesc" placeholder="예: 점심 식사"></div>
+  <div class="field"><label>카테고리</label><select id="inpCat"></select></div>
+  <div class="field"><label>날짜</label><input type="date" id="inpDate"></div>
+  <button class="save-btn" onclick="saveTx()">저장하기</button>
+</div>
+
+<!-- 회화 편집 모달 -->
+<div class="modal-overlay" id="phraseOverlay" onclick="closePhraseModalOutside(event)"></div>
+<div class="modal" id="phraseModal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">주간 영어 회화 편집</div>
+  <div class="modal-sub">매주 외울 문장을 직접 입력해 주세요.</div>
+  <div id="phraseEditList"></div>
+  <button class="modal-add-btn" onclick="addPhraseItem()">+ 문장 추가</button>
+  <button class="modal-save-btn" onclick="savePhrases()">저장하기</button>
+</div>
+
+<!-- ══════════════════════════════════════
+     Firebase SDK 불러오기
+════════════════════════════════════════ -->
+<script type="module">
+// ★★★ 여기에 복사한 firebaseConfig 를 붙여넣으세요 ★★★
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, addDoc, deleteDoc, onSnapshot, setDoc, getDoc, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ↓↓↓ 이 부분을 여러분의 firebaseConfig 로 교체하세요 ↓↓↓
+const firebaseConfig = {
+  apiKey: "AIzaSyC-qLgaH7IGp9UfWUnhH4oy38VOzxLXyBU",
+  authDomain: "family-budget-c6cea.firebaseapp.com",
+  projectId: "family-budget-c6cea",
+  storageBucket: "family-budget-c6cea.firebasestorage.app",
+  messagingSenderId: "1007633383179",
+  appId: "1:1007633383179:web:08d0d153ea90f01d392c0e",
+  measurementId: "G-KB02NEFK07"
+};
+// ↑↑↑ 여기까지 교체 ↑↑↑
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// ── 전역 변수 ──
+const CATS = {
+  income:  [{id:'salary',e:'💼',n:'급여'},{id:'gift',e:'🎁',n:'용돈'},{id:'invest',e:'📈',n:'투자'},{id:'etc_in',e:'💵',n:'기타'}],
+  expense: [{id:'food',e:'🍚',n:'식비'},{id:'cafe',e:'☕',n:'카페'},{id:'trans',e:'🚌',n:'교통'},{id:'shop',e:'🛍',n:'쇼핑'},{id:'health',e:'💊',n:'의료'},{id:'culture',e:'🎬',n:'문화'},{id:'house',e:'🏠',n:'주거'},{id:'edu',e:'📚',n:'교육'},{id:'etc',e:'📦',n:'기타'}]
+};
+const QUOTES = [
+  {text:"돈을 관리하는 것은 돈을 버는 것보다 더 중요하다.",author:"— 워런 버핏"},
+  {text:"작은 지출을 조심하라. 작은 구멍이 큰 배를 침몰시킨다.",author:"— 벤자민 프랭클린"},
+  {text:"부자가 되고 싶다면 내일을 위해 오늘을 아껴라.",author:"— 벤자민 프랭클린"},
+  {text:"수입의 일부를 반드시 저축하라. 그것이 부의 시작이다.",author:"— 조지 클레이슨"},
+  {text:"돈은 씨앗과 같다. 심지 않으면 아무것도 자라지 않는다.",author:"— 탈무드"},
+  {text:"가장 좋은 투자는 자기 자신에 대한 투자다.",author:"— 워런 버핏"},
+  {text:"필요한 것을 사라. 원하는 것은 나중에 사라.",author:"— 서양 속담"},
+  {text:"부는 버는 것이 아니라 쓰지 않는 것에서 시작된다.",author:"— 존 D. 록펠러"},
+  {text:"오늘 희생하지 않으면 내일도 원하는 삶을 살 수 없다.",author:"— 데이브 램지"},
+  {text:"예산은 당신의 돈이 어디로 가는지 알려주는 지도다.",author:"— 존 맥스웰"},
+  {text:"지출을 기록하는 습관이 부자의 첫 번째 습관이다.",author:"— 탈무드"},
+  {text:"돈을 지배하지 않으면, 돈에 지배당한다.",author:"— 서양 속담"},
+  {text:"오늘의 저축이 내일의 자유다.",author:"— 서양 격언"},
+  {text:"당신의 지출 습관이 곧 당신의 미래다.",author:"— 데이브 램지"},
+  {text:"재정적 자유는 목표가 아니라 습관에서 만들어진다.",author:"— 로버트 기요사키"},
+  {text:"1만 원을 아끼는 것은 1만 원을 버는 것과 같다.",author:"— 탈무드"},
+  {text:"계획 없는 소비는 목표 없는 항해와 같다.",author:"— 서양 격언"},
+  {text:"가계부 쓰는 습관이 인생을 바꾼다.",author:"— 혼다 켄"},
+  {text:"욕망을 다스리는 자가 돈을 다스린다.",author:"— 소크라테스"},
+  {text:"돈은 감정이 아니라 숫자로 관리해야 한다.",author:"— 서양 격언"},
+];
+
+let txs = [], todos = [], phrases = [];
+let curType = 'expense', phraseIdx = 0, isSignUp = false;
+let unsubTx = null, unsubTodo = null;
+const today = new Date();
+let vy = today.getFullYear(), vm = today.getMonth();
+
+// ── 로그인 상태 감지 ──
+// 앱이 실행되면 Firebase가 자동으로 로그인 상태를 확인해요
+onAuthStateChanged(auth, user => {
+  if (user) {
+    // 로그인된 상태
+    document.getElementById('loginScreen').classList.add('hide');
+    document.getElementById('userBar').style.display    = 'flex';
+    document.getElementById('mainHeader').style.display = 'block';
+    document.getElementById('quoteBar').style.display   = 'flex';
+    document.getElementById('tabBar').style.display     = 'flex';
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('mainFab').style.display    = 'flex';
+    document.getElementById('userEmail').textContent    = user.email;
+    initApp(user.uid);
+  } else {
+    // 로그아웃 상태
+    document.getElementById('loginScreen').classList.remove('hide');
+    document.getElementById('userBar').style.display    = 'none';
+    document.getElementById('mainHeader').style.display = 'none';
+    document.getElementById('quoteBar').style.display   = 'none';
+    document.getElementById('tabBar').style.display     = 'none';
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('mainFab').style.display    = 'none';
+    if (unsubTx)   { unsubTx();   unsubTx   = null; }
+    if (unsubTodo) { unsubTodo(); unsubTodo = null; }
+  }
+});
+
+// ── 앱 초기화 (로그인 후) ──
+function initApp(uid) {
+  setType('expense');
+  updateHeader();
+  renderQuote();
+  loadPhrases(uid);
+  renderTodos(uid);
+
+  // Firestore 실시간 리스너 등록
+  // onSnapshot: 데이터가 바뀌면 자동으로 화면을 새로 그려줘요
+  const txCol = collection(db, 'users', uid, 'transactions');
+  const txQ   = query(txCol, orderBy('date', 'desc'));
+  unsubTx = onSnapshot(txQ, snap => {
+    txs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    updateHeader();
+    renderList();
+    if (document.getElementById('page-stats').classList.contains('active')) renderStats();
+  });
+
+  const todoCol = collection(db, 'users', uid, 'todos');
+  unsubTodo = onSnapshot(todoCol, snap => {
+    todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTodos(uid);
+  });
+}
+
+// ── 로그인 / 회원가입 ──
+window.doAuth = async function() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw    = document.getElementById('loginPw').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = '';
+  if (!email || !pw) { errEl.textContent = '이메일과 비밀번호를 입력해 주세요.'; return; }
+  try {
+    if (isSignUp) {
+      await createUserWithEmailAndPassword(auth, email, pw);
+      showToast('가입이 완료되었습니다!');
+    } else {
+      await signInWithEmailAndPassword(auth, email, pw);
+      showToast('로그인되었습니다');
+    }
+  } catch(e) {
+    const msg = {
+      'auth/email-already-in-use': '이미 사용 중인 이메일이에요.',
+      'auth/invalid-email':        '이메일 형식이 올바르지 않아요.',
+      'auth/weak-password':        '비밀번호는 6자리 이상이어야 해요.',
+      'auth/invalid-credential':   '이메일 또는 비밀번호가 틀렸어요.',
+      'auth/user-not-found':       '등록되지 않은 이메일이에요.',
+      'auth/wrong-password':       '비밀번호가 틀렸어요.',
+    }[e.code] || ('오류: ' + e.message);
+    errEl.textContent = msg;
+  }
+};
+
+window.toggleAuthMode = function() {
+  isSignUp = !isSignUp;
+  document.getElementById('loginModeTitle').textContent = isSignUp ? '회원가입' : '로그인';
+  document.getElementById('loginBtn').textContent       = isSignUp ? '회원가입' : '로그인';
+  document.getElementById('loginToggle').textContent    = isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입';
+  document.getElementById('loginErr').textContent = '';
+};
+
+window.doLogout = async function() {
+  await signOut(auth);
+  showToast('로그아웃되었습니다');
+};
+
+// ── 헤더 업데이트 ──
+function updateHeader() {
+  const mo = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  document.getElementById('monthLabel').textContent = vy + '년 ' + mo[vm];
+  const list = monthTxs();
+  const exp  = list.filter(t => t.type === 'expense').reduce((a,t) => a + t.amount, 0);
+  const cnt  = list.filter(t => t.type === 'expense').length;
+  document.getElementById('sumExp').textContent      = fmt(exp);
+  document.getElementById('expSubLabel').textContent = '거래 ' + cnt + '건';
+}
+const monthTxs = () => txs.filter(t => {
+  const d = new Date(t.date);
+  return d.getFullYear() === vy && d.getMonth() === vm;
+});
+window.chMonth = function(d) {
+  vm += d;
+  if (vm > 11) { vm = 0; vy++; }
+  if (vm < 0)  { vm = 11; vy--; }
+  updateHeader(); renderList();
+  if (document.getElementById('page-stats').classList.contains('active')) renderStats();
+};
+
+// ── 탭 전환 ──
+window.switchTab = function(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('tab-'  + name).classList.add('active');
+  if (name === 'stats') renderStats();
+};
+
+// ── 거래 내역 렌더 ──
+function renderList() {
+  const list = [...monthTxs()].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const el   = document.getElementById('txList');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-i">○</div><p>이번 달 내역이 없습니다<br>+ 버튼을 눌러 추가해 보세요</p></div>';
+    return;
+  }
+  const groups = {};
+  list.forEach(t => { (groups[t.date] = groups[t.date] || []).push(t); });
+  el.innerHTML = Object.entries(groups).map(([date, items]) => {
+    const d  = new Date(date + 'T00:00:00');
+    const t2 = new Date(); t2.setHours(0,0,0,0);
+    const y2 = new Date(t2); y2.setDate(t2.getDate()-1);
+    const dw = ['일','월','화','수','목','금','토'];
+    const lbl = d.getTime()===t2.getTime() ? '오늘' : d.getTime()===y2.getTime() ? '어제'
+              : (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+dw[d.getDay()]+')';
+    return '<div class="date-div">'+lbl+'</div>'+items.map(t => {
+      const cat = getCat(t.catId), isInc = t.type==='income';
+      return '<div class="tx-item"><div class="tx-ico">'+cat.e+'</div>' +
+        '<div class="tx-info"><div class="tx-name">'+t.desc+'</div>' +
+        '<div class="tx-sub"><span class="tx-tag">'+cat.n+'</span></div></div>' +
+        '<div class="tx-right"><div class="tx-amt '+(isInc?'inc':'exp')+'">'+(isInc?'+':'-')+fmt(t.amount)+'</div>' +
+        '<button class="tx-del" onclick="delTx(\''+t.id+'\')">✕</button></div></div>';
+    }).join('');
+  }).join('');
+}
+
+// ── 거래 저장 / 삭제 ──
+window.openSheet  = function() {
+  document.getElementById('inpDate').value = today.toISOString().slice(0,10);
+  document.getElementById('inpAmt').value  = '';
+  document.getElementById('inpDesc').value = '';
+  setType('expense');
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('sheet').classList.add('show');
+  setTimeout(() => document.getElementById('inpAmt').focus(), 350);
+};
+window.closeSheet = function() {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('sheet').classList.remove('show');
+};
+window.setType = function(type) {
+  curType = type;
+  document.getElementById('segInc').className = 'seg-btn'+(type==='income'?' on':'');
+  document.getElementById('segExp').className = 'seg-btn'+(type==='expense'?' on':'');
+  document.getElementById('inpCat').innerHTML = CATS[type].map(c =>
+    '<option value="'+c.id+'">'+c.e+' '+c.n+'</option>').join('');
+};
+window.saveTx = async function() {
+  const amt   = parseInt(document.getElementById('inpAmt').value);
+  const desc  = document.getElementById('inpDesc').value.trim();
+  const catId = document.getElementById('inpCat').value;
+  const date  = document.getElementById('inpDate').value;
+  if (!amt||amt<=0) { alert('금액을 입력해 주세요.'); return; }
+  if (!desc)        { alert('내용을 입력해 주세요.'); return; }
+  const uid = auth.currentUser.uid;
+  await addDoc(collection(db,'users',uid,'transactions'), { type:curType, amount:amt, desc, catId, date, createdAt: Date.now() });
+  const d = new Date(date); vy=d.getFullYear(); vm=d.getMonth();
+  closeSheet();
+  showToast('저장되었습니다');
+};
+window.delTx = async function(id) {
+  if (!confirm('삭제할까요?')) return;
+  const uid = auth.currentUser.uid;
+  await deleteDoc(doc(db,'users',uid,'transactions',id));
+};
+
+// ── 통계 ──
+function renderStats() {
+  const list = monthTxs();
+  const inc  = list.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+  const exp  = list.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+  const rate = inc>0 ? Math.round((inc-exp)/inc*100) : null;
+  document.getElementById('stRate').textContent  = rate!==null ? rate+'%' : '—';
+  document.getElementById('stCount').textContent = list.length+'건';
+  const days = new Date(vy,vm+1,0).getDate();
+  document.getElementById('stDaily').textContent = fmt(Math.round(exp/days));
+  const expItems = list.filter(t=>t.type==='expense');
+  document.getElementById('stMax').textContent = fmt(expItems.reduce((a,t)=>t.amount>a?t.amount:a,0));
+  const catMap={};
+  expItems.forEach(t=>{ catMap[t.catId]=(catMap[t.catId]||0)+t.amount; });
+  const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  const maxAmt=sorted[0]?.[1]||1;
+  document.getElementById('catList').innerHTML=sorted.length
+    ? sorted.map(([id,amt])=>{ const cat=getCat(id);
+        return '<div class="cat-row"><span class="cat-em">'+cat.e+'</span><span class="cat-nm">'+cat.n+'</span>' +
+          '<div class="cat-bg"><div class="cat-fill" style="width:'+Math.round(amt/maxAmt*100)+'%"></div></div>' +
+          '<span class="cat-am">'+fmt(amt)+'</span></div>'; }).join('')
+    : '<p style="font-size:12px;color:var(--muted);padding:12px 0">지출 내역이 없습니다</p>';
+  const months=[];
+  for(let i=5;i>=0;i--){let m=vm-i,y=vy;while(m<0){m+=12;y--;}
+    const e=txs.filter(t=>{const d=new Date(t.date);return d.getFullYear()===y&&d.getMonth()===m&&t.type==='expense';}).reduce((a,t)=>a+t.amount,0);
+    months.push({label:(m+1)+'월',exp:e,isCur:i===0});}
+  const maxM=Math.max(...months.map(m=>m.exp),1);
+  document.getElementById('mBars').innerHTML=months.map(m=>{
+    const h=Math.max(m.exp/maxM*100,m.exp>0?6:2);
+    return '<div class="m-col"><div class="m-bar '+(m.isCur?'cur':'')+'" style="height:'+h+'%"></div>' +
+           '<div class="m-lbl '+(m.isCur?'cur':'')+'">'+m.label+'</div></div>';}).join('');
+}
+
+// ── 투두 ──
+function todayKey() { return today.toISOString().slice(0,10); }
+function weekKey() {
+  const d=new Date(today); d.setHours(0,0,0,0);
+  const day=d.getDay(); d.setDate(d.getDate()-(day===0?6:day-1));
+  return 'week_'+d.toISOString().slice(0,10);
+}
+function renderTodos() {
+  ['daily','weekly'].forEach(scope => {
+    const key   = scope==='daily' ? todayKey() : weekKey();
+    const list  = todos.filter(t=>t.key===key);
+    const doneN = list.filter(t=>t.done).length;
+    const pct   = list.length>0 ? Math.round(doneN/list.length*100) : 0;
+    const cap   = scope.charAt(0).toUpperCase()+scope.slice(1);
+    document.getElementById('progPct'+cap).textContent  = pct+'%';
+    document.getElementById('progFill'+cap).style.width = pct+'%';
+    const el = document.getElementById('todoList'+cap);
+    el.innerHTML = list.length
+      ? list.map(t =>
+          '<div class="todo-item">' +
+          '<div class="todo-check '+(t.done?'done':'')+'" onclick="toggleTodo(\''+t.id+'\')"></div>' +
+          '<div class="todo-text '+(t.done?'done':'')+'">' +escHtml(t.text)+'</div>' +
+          '<button class="todo-del" onclick="deleteTodo(\''+t.id+'\')">✕</button></div>'
+        ).join('')
+      : '<div class="todo-empty-sm">+ 버튼으로<br>추가해 보세요</div>';
+  });
+}
+window.showTodoInput = function(scope) {
+  const cap=scope.charAt(0).toUpperCase()+scope.slice(1);
+  const inp=document.getElementById('todoInput'+cap);
+  inp.classList.add('show'); inp.focus();
+};
+window.handleTodoKey = async function(e, scope) {
+  if (e.key==='Enter') {
+    const text=e.target.value.trim(); if (!text) return;
+    const key=scope==='daily'?todayKey():weekKey();
+    const uid=auth.currentUser.uid;
+    await addDoc(collection(db,'users',uid,'todos'), {key,text,done:false,createdAt:Date.now()});
+    e.target.value=''; e.target.classList.remove('show');
+  }
+  if (e.key==='Escape') { e.target.value=''; e.target.classList.remove('show'); }
+};
+window.toggleTodo = async function(id) {
+  const t=todos.find(t=>t.id===id); if(!t) return;
+  const uid=auth.currentUser.uid;
+  await setDoc(doc(db,'users',uid,'todos',id), {...t, done:!t.done});
+};
+window.deleteTodo = async function(id) {
+  const uid=auth.currentUser.uid;
+  await deleteDoc(doc(db,'users',uid,'todos',id));
+};
+
+// ── 영어 회화 ──
+async function loadPhrases(uid) {
+  const snap = await getDoc(doc(db,'users',uid,'settings','phrases'));
+  phrases = snap.exists() ? (snap.data().list || []) : [];
+  renderPhraseCard();
+}
+function renderPhraseCard() {
+  const wrap=document.getElementById('phraseCardWrap');
+  if (!phrases.length) {
+    wrap.innerHTML='<div class="phrase-empty">아직 등록된 문장이 없어요.<br>오른쪽 편집 버튼을 눌러 추가해 보세요.</div>';
+    return;
+  }
+  if (phraseIdx>=phrases.length) phraseIdx=0;
+  const p=phrases[phraseIdx];
+  const dots=phrases.map((_,i)=>'<div class="phrase-dot'+(i===phraseIdx?' on':'')+'"></div>').join('');
+  wrap.innerHTML='<div class="phrase-card">' +
+    '<div class="phrase-nav-row">' +
+    '<button class="phrase-nav-btn" onclick="phraseNav(-1)">&#8249;</button>' +
+    '<div class="phrase-dots">'+dots+'</div>' +
+    '<span class="phrase-week-tag">'+(phraseIdx+1)+' / '+phrases.length+'</span>' +
+    '<button class="phrase-nav-btn" onclick="phraseNav(1)">&#8250;</button></div>' +
+    '<div class="phrase-en">'+escHtml(p.en)+'</div>' +
+    '<div class="phrase-ko">'+escHtml(p.ko)+'</div>' +
+    (p.memo ? '<div class="phrase-memo"><div class="phrase-memo-lbl">메모</div>'+escHtml(p.memo)+'</div>' : '') +
+    '</div>';
+}
+window.phraseNav=function(dir){ phraseIdx=(phraseIdx+dir+phrases.length)%phrases.length; renderPhraseCard(); };
+let editPhrases=[];
+window.openPhraseModal=function(){
+  editPhrases=JSON.parse(JSON.stringify(phrases));
+  if(!editPhrases.length) editPhrases.push({en:'',ko:'',memo:''});
+  renderPhraseEditList();
+  document.getElementById('phraseOverlay').classList.add('show');
+  document.getElementById('phraseModal').classList.add('show');
+};
+window.closePhraseModalOutside=function(e){ if(e.target===document.getElementById('phraseOverlay')) closePhraseModalInner(); };
+function closePhraseModalInner(){
+  document.getElementById('phraseOverlay').classList.remove('show');
+  document.getElementById('phraseModal').classList.remove('show');
+}
+function renderPhraseEditList(){
+  document.getElementById('phraseEditList').innerHTML=editPhrases.map((p,i)=>
+    '<div class="phrase-list-item"><div class="pli-header"><span class="pli-num">'+(i+1)+'번째 문장</span>' +
+    '<button class="pli-del-btn" onclick="deletePhraseItem('+i+')">✕</button></div>' +
+    '<div class="pli-field"><div class="pli-label">영어</div><input class="pli-input" id="pen_'+i+'" value="'+escAttr(p.en)+'" placeholder="예: How are you doing?"></div>' +
+    '<div class="pli-field"><div class="pli-label">한국어 뜻</div><input class="pli-input" id="pko_'+i+'" value="'+escAttr(p.ko)+'" placeholder="예: 어떻게 지내세요?"></div>' +
+    '<div class="pli-field"><div class="pli-label">메모 (선택)</div><textarea class="pli-input" id="pme_'+i+'" rows="2" placeholder="사용 상황이나 팁">'+escHtml(p.memo||'')+'</textarea></div></div>'
+  ).join('');
+}
+window.addPhraseItem=function(){ editPhrases.push({en:'',ko:'',memo:''}); renderPhraseEditList(); setTimeout(()=>{ const el=document.getElementById('pen_'+(editPhrases.length-1)); if(el) el.focus(); },50); };
+window.deletePhraseItem=function(i){ editPhrases.splice(i,1); renderPhraseEditList(); };
+window.savePhrases=async function(){
+  phrases=editPhrases.map((_,i)=>({ en:(document.getElementById('pen_'+i)?.value||'').trim(), ko:(document.getElementById('pko_'+i)?.value||'').trim(), memo:(document.getElementById('pme_'+i)?.value||'').trim() })).filter(p=>p.en||p.ko);
+  const uid=auth.currentUser.uid;
+  await setDoc(doc(db,'users',uid,'settings','phrases'), {list:phrases});
+  phraseIdx=0; closePhraseModalInner(); renderPhraseCard();
+  showToast('저장되었습니다');
+};
+
+// ── 명언 ──
+function renderQuote(){
+  const d=new Date(), key=d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+  const q=QUOTES[key%QUOTES.length];
+  document.getElementById('quoteText').textContent=q.text;
+  document.getElementById('quoteAuthor').textContent=q.author;
+}
+
+// ── 유틸 ──
+const fmt    = n => '₩'+Math.abs(n).toLocaleString('ko-KR');
+const getCat = id => [...CATS.income,...CATS.expense].find(c=>c.id===id)||{e:'📦',n:'기타'};
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function showToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg||'저장되었습니다';
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),1800);
+}
+window.showToast = showToast;
+
+</script>
+</body>
+</html>
